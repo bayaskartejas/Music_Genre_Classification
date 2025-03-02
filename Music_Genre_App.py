@@ -5,7 +5,20 @@ import librosa
 from matplotlib import pyplot
 import numpy as np
 from tensorflow.image import resize
+from dotenv import load_dotenv
 import os
+import requests
+import random
+
+# Load environment variables from .env file
+load_dotenv()
+
+# Retrieve your API key
+LASTFM_API_KEY = os.getenv('LASTFM_API_KEY')
+
+print(f"API Key: {LASTFM_API_KEY}")
+
+
 
 #Function
 @st.cache_resource()
@@ -61,6 +74,34 @@ def model_prediction(X_test):
     max_elements = unique_elements[counts == max_count]
     return max_elements[0]
 
+#Music Reccommendation
+def get_lastfm_recommendations(genre, api_key, num_recommendations=5):
+    url = "http://ws.audioscrobbler.com/2.0/"
+    params = {
+        "method": "tag.gettoptracks",
+        "tag": genre,
+        "api_key": api_key,
+        "format": "json",
+        "limit": 50
+    }
+
+    print(f"Making request to: {url} with params: {params}")  # Debugging
+
+    try:
+        response = requests.get(url, params=params)
+        print(f"Response status: {response.status_code}")  # Debugging
+        print(f"Response text: {response.text[:500]}")
+        data = response.json()
+        tracks = data.get("tracks", {}).get("track", [])
+        if not tracks:
+            print("No tracks found in response")  # Debugging
+            return []
+        # Randomly select the desired number of recommendations.
+        recommendations = random.sample(tracks, min(num_recommendations, len(tracks)))
+        return recommendations
+    except Exception as e:
+        print("Error fetching recommendations:", e)
+        return []
 
 
 #sidebar
@@ -145,11 +186,25 @@ elif(app_mode=="Prediction"):
     
     #Predict Button
     if(st.button("Predict")):
-      with st.spinner("Please Wait.."):       
-        X_test = load_and_preprocess_data(filepath)
-        result_index = model_prediction(X_test)
-        st.balloons()
-        label = ['blues', 'classical','country','disco','hiphop','jazz','metal','pop','reggae','rock']
-        st.markdown("**:blue[Model Prediction:] It's a  :green[{}] music**".format(label[result_index]))
+        with st.spinner("Please Wait.."):       
+            X_test = load_and_preprocess_data(filepath)
+            result_index = model_prediction(X_test)
+            st.balloons()
+            label = ['blues', 'classical','country','disco','hiphop','jazz','metal','pop','reggae','rock']
+            predicted_genre = label[result_index]
+            st.markdown("**:blue[Model Prediction:] It's a  :green[{}] music**".format(predicted_genre))
+            
+            # Add Last.fm recommendations
+            recommendations = get_lastfm_recommendations(predicted_genre, LASTFM_API_KEY)
+            
+            if recommendations:
+                st.markdown("### Recommended Songs:")
+                for track in recommendations:
+                    track_name = track.get("name", "Unknown")
+                    artist_name = track.get("artist", {}).get("name", "Unknown")
+                    st.markdown(f"- **{track_name}** by *{artist_name}*")
+            else:
+                st.markdown("No recommendations found.")
+
 
        
