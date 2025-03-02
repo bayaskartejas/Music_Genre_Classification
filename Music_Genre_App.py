@@ -16,8 +16,6 @@ load_dotenv()
 # Retrieve your API key
 LASTFM_API_KEY = os.getenv('LASTFM_API_KEY')
 
-print(f"API Key: {LASTFM_API_KEY}")
-
 
 
 #Function
@@ -96,8 +94,19 @@ def get_lastfm_recommendations(genre, api_key, num_recommendations=5):
         if not tracks:
             print("No tracks found in response")  # Debugging
             return []
-        # Randomly select the desired number of recommendations.
-        recommendations = random.sample(tracks, min(num_recommendations, len(tracks)))
+        
+        # Select random tracks for recommendations
+        selected_tracks = random.sample(tracks, min(num_recommendations, len(tracks)))
+        recommendations = []
+        for track in selected_tracks:
+            recommendations.append({
+                "name": track.get("name", "Unknown"),  
+                "artist": track.get("artist", {}).get("name", "Unknown"),
+                "track_url": track.get("url", "#"),
+                "artist_url": track.get("artist", {}).get("url", "#"),
+                "duration": track.get("duration", "Unknown"),
+                "image_url": track.get("image", [{}])[-1].get("#text", "")  # Fetch largest image
+            })
         return recommendations
     except Exception as e:
         print("Error fetching recommendations:", e)
@@ -124,6 +133,7 @@ if(app_mode=="Home"):
     """,
     unsafe_allow_html=True
 )
+
 
     st.markdown(''' ## Welcome to the,\n
     ## Music Genre Classification System! 🎶🎧''')
@@ -169,6 +179,19 @@ elif(app_mode=="About Project"):
 
 #Prediction Page
 elif(app_mode=="Prediction"):
+    st.markdown("""
+    <style>
+    .recommendation-link {
+        color: inherit;  /* Keep normal text color */
+        text-decoration: none; /* No underline by default */
+    }
+    .recommendation-link:hover {
+        color: #1E90FF;  /* DodgerBlue on hover */
+        text-decoration: underline; /* Underline on hover */
+    }
+    </style>
+    """, unsafe_allow_html=True)
+        
     st.header("Model Prediction")
     test_mp3 = st.file_uploader("Upload an audio file", type=["mp3"])
     if test_mp3 is not None:
@@ -194,17 +217,18 @@ elif(app_mode=="Prediction"):
             predicted_genre = label[result_index]
             st.markdown("**:blue[Model Prediction:] It's a  :green[{}] music**".format(predicted_genre))
             
-            # Add Last.fm recommendations
+            # Fetch recommendations
             recommendations = get_lastfm_recommendations(predicted_genre, LASTFM_API_KEY)
-            
+
             if recommendations:
                 st.markdown("### Recommended Songs:")
                 for track in recommendations:
-                    track_name = track.get("name", "Unknown")
-                    artist_name = track.get("artist", {}).get("name", "Unknown")
-                    st.markdown(f"- **{track_name}** by *{artist_name}*")
+                    st.markdown(
+                        f'<p><a href="{track["track_url"]}" class="recommendation-link" target="_blank"><b>{track["name"]}</b></a> '
+                        f'by <a href="{track["artist_url"]}" class="recommendation-link" target="_blank">{track["artist"]}</a></p>',
+                        unsafe_allow_html=True
+                    )
+                    st.markdown(f"⏱ **Duration:** {track['duration']} seconds")
             else:
-                st.markdown("No recommendations found.")
+                st.markdown("⚠️ No recommendations found.")
 
-
-       
